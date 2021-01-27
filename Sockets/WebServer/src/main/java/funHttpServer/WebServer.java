@@ -25,6 +25,7 @@ import java.util.Random;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.nio.charset.Charset;
+import org.json.*;
 
 class WebServer {
   public static void main(String args[]) {
@@ -198,23 +199,41 @@ class WebServer {
           // wrong data is given this just crashes
 
           Map<String, String> query_pairs = new LinkedHashMap<String, String>();
-          // extract path parameters
-          query_pairs = splitQuery(request.replace("multiply?", ""));
-
+          // extract path parameter
+	  try{
+                query_pairs = splitQuery(request.replace("multiply?", ""));
+	  } catch (StringIndexOutOfBoundsException e) {
+                builder.append("HTTP/1.1 400 BAD REQUEST\n");
+                builder.append("Content-Type: text/html; charset=utf-8\n");
+                builder.append("\n");
+                builder.append("The parameters given could not be processed as integers.");
+		builder.append("\nPlease use 2 integers in your request.");
+		builder.append("\nThe format of your requst should be multiply?num1=<number>&num2=<number>.");
+	  }
+	  try {
           // extract required fields from parameters
-          Integer num1 = Integer.parseInt(query_pairs.get("num1"));
-          Integer num2 = Integer.parseInt(query_pairs.get("num2"));
+          	Integer num1 = Integer.parseInt(query_pairs.get("num1"));
+          	Integer num2 = Integer.parseInt(query_pairs.get("num2"));
+	 
+                // do math
+                Integer result = num1 * num2;
 
-          // do math
-          Integer result = num1 * num2;
-
-          // Generate response
-          builder.append("HTTP/1.1 200 OK\n");
-          builder.append("Content-Type: text/html; charset=utf-8\n");
-          builder.append("\n");
-          builder.append("Result is: " + result);
-
-          // TODO: Include error handling here with a correct error code and
+                // Generate response
+                builder.append("HTTP/1.1 200 OK\n");
+                builder.append("Content-Type: text/html; charset=utf-8\n");
+                builder.append("\n");
+                builder.append("Result is: " + result);
+	  
+	  } catch (NumberFormatException e) {
+                builder.append("HTTP/1.1 400 BAD REQUEST\n");
+                builder.append("Content-Type: text/html; charset=utf-8\n");
+                builder.append("\n");
+                builder.append("The parameters given could not be processed as integers.");
+		builder.append("\nPlease use 2 integers in your request.");
+		builder.append("\nThe format of your requst should be multiply?num1=<number>&num2=<number>.");
+	  }
+          
+	  // TODO: Include error handling here with a correct error code and
           // a response that makes sense
 
         } else if (request.contains("github?")) {
@@ -231,13 +250,22 @@ class WebServer {
           String json = fetchURL("https://api.github.com/" + query_pairs.get("query"));
           System.out.println(json);
 
-          builder.append("Check the todos mentioned in the Java source file");
-          // TODO: Parse the JSON returned by your fetch and create an appropriate
-          // response
-          // and list the owner name, owner id and name of the public repo on your webpage, e.g.
-          // amehlhase, 46384989 -> memoranda
-          // amehlhase, 46384989 -> ser316examples
-          // amehlhase, 46384989 -> test316
+	  JSONArray jsonArr = new JSONArray(json);
+
+	  builder.append("HTTP/1.1 200 OK\n");
+	  builder.append("\n");
+
+	  // Iterate through JSONArray to generate our result.
+	  for (int i = 0; i < jsonArr.length(); i++) {
+		  JSONObject jsonObj = jsonArr.getJSONObject(i);
+		  builder.append(jsonObj.getJSONObject("owner").getString("login"));
+		  builder.append(", ");
+		  builder.append(jsonObj.getJSONObject("owner").get("id"));
+		  builder.append(" -> ");
+		  builder.append(jsonObj.getString("name"));
+		  builder.append("\n");
+	  }
+
 
         } else {
           // if the request is not recognized at all
